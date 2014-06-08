@@ -1,0 +1,193 @@
+﻿#include<stdlib.h>
+#include<stdio.h>
+#include<string.h>
+
+
+//declaring global variables
+char instruction[10][8],result[10][3],operand1[10][3],operand2[10][8];	
+char input[10][30];			
+FILE *fout;
+
+//declaring functions 
+void True_Dependece(int);
+void Name_Dependece(int);
+void Control_Dependece(int);
+
+
+int main()
+{
+FILE *fin = fopen ("project.txt","r");
+fout = fopen("output.txt","w+");
+int i,j,k,cnt,ret,a,p;
+char feed[128],* strptr, array[30];
+fputs("------------------------------------------------------------------------------------------------------------------------------\nComputer Architecture : Project I\n\n", fout);
+fputs("Statement:- Write a C or C++ program that will read MIPS-like instructions from a fin and output all the dependences, namely data, name (both anti-dependence and output dependence), and control dependences. The output fin should include the instruction pairs, type of dependence, and cause of dependence. Assume that the instruction set consists of only ALU instructions (ADD, SUB, MUL, DIV, OR, AND, NOT) and BNE instructions.\n\n------------------------------------------------------------------------------------------------------------------------------",fout);
+	
+	if(fin != NULL)		
+	{
+	  i=0;
+	  while(fgets(feed,sizeof feed,fin) != NULL) 
+	     	{
+		  strcpy(input[i],feed);
+	      	  i++;
+		}
+	 fclose (fin);
+	 cnt=0;
+	 for(j=0;j<i;j++)
+	 {
+	   strcpy(array,input[j]);
+	   strptr=strtok(array," :");
+       	   while(strptr!=NULL)
+	    {
+			 if((cnt%4)==0)
+				 strcpy(instruction[j],strptr);
+			 else if((cnt%4)==1)
+				{
+				 strcpy(result[j],strptr);
+					if (result[j][0] == '\n')
+						{
+					 	  result[j][0] = '\0';
+					 	  cnt = cnt + 2;
+						}
+				}
+			 else if((cnt%4)==2)
+				{
+				 strcpy(operand1[j],strptr);
+					if (result[j][0] == '\n')
+						{
+					 	  result[j][0] = '\0';
+					 	  cnt = cnt + 1;
+						}	
+				}
+			 else if((cnt%4)==3)
+				{
+				 strcpy(operand2[j],strptr);
+				 for(p=0;p<=strlen(operand2[j]);p++)
+					{
+					 if (operand2[j][p] == '\n')
+					     operand2[j][p] = '\0';
+					}
+				}
+			 strptr = strtok (NULL, " :");
+			 ++cnt;
+		 }
+	 }
+	//Check for data dependence
+	True_Dependece(j);
+	//Check for name dependence (anti-dependence & output)
+	Name_Dependece(j);
+	//Check for control dependence
+	Control_Dependece(j);
+	fclose(fout);
+	}
+	return 0;
+}
+
+
+void True_Dependece(int j)
+{
+	int i,compare1,compare2,q;
+	char message[200];
+	for(i=0;i<j;i++)
+	{
+		for(q=1;q<j-i;q++)
+		{
+		  compare1=strcmp(result[i],operand1[i+q]);
+		  compare2=strcmp(result[i],operand2[i+q]);
+		  if( (compare1==0) || (compare2==0) )
+		   	{
+			fputs("Instructions:- \n\t\t\t", fout);
+			fputs(input[i],fout);
+			fputs("\t\t\t",fout);
+			fputs(input[i+q],fout);
+			fputs("Type of Dependence :  Data dependence ", fout);
+			fputs("\n",fout);
+			strcpy(message,"Cause of Dependence : Reading from a register ");
+			strcat(message, result[i]);
+			strcat(message, " after writing to it in the previous instruction which may cause ´READ AFTER WRITE´ 				hazard.");
+			fputs( message, fout);
+			fputs("\n\n",fout);
+			}
+		}
+	}
+}
+
+
+void Name_Dependece(int j)
+{
+ int i,compare1,compare2,r,s;
+ char message[200];
+	for(i=0;i<j;i++)
+	{
+	  for(r=1;r<j-i;r++)
+	   {
+	     compare1=strcmp(result[i+r],operand1[i]);
+	     compare2=strcmp(result[i+r],operand2[i]);
+		if((compare1==0) || (compare2==0))
+		   {
+			fputs("Instructions:- \n\t\t\t", fout);
+			fputs(input[i],fout);
+			fputs("\t\t\t",fout);
+			fputs(input[i+r],fout);
+			fputs("Type of Dependence :  Anti-dependence ", fout);
+			fputs("\n",fout);
+			strcpy(message,"Cause of Dependence : Writing to a register ");
+			strcat(message, result[i+r]);
+			strcat(message, " after reading it in the previous instruction which may cause ´WRITE AFTER READ´ 				hazard." );
+			fputs( message, fout);
+			fputs("\n\n",fout);
+		   }
+	    }
+	}
+
+	for(i=0;i<j;i++)
+	   {
+	  for(s=1;s<j-i;s++)
+	     {
+		compare1=strcmp(result[i+s],result[i]);
+		 if(compare1==0)
+		   {
+			fputs("Instructions:- \n\t\t\t", fout);
+			fputs(input[i],fout);
+			fputs("\t\t\t",fout);
+			fputs(input[i+s],fout);
+			fputs("Type of Dependence :  Output dependence ", fout);
+			fputs("\n",fout);
+			strcpy(message,"Cause of Dependence : Writing to a register ");
+			strcat(message, result[i+s]);
+			strcat(message, " after writing to it in the previous instruction which may cause ´WRITE AFTER WRITE´ 				hazard." );
+			fputs( message, fout);
+			fputs("\n\n",fout);
+		   }
+	      }
+	   }
+}
+
+
+void Control_Dependece(int j)
+{
+  int i,pc,b,c,compare;
+  char message[200];
+	for(i=0;i<j;i++)
+	   {
+		compare=strcmp(instruction[i],"BNE");
+		if(compare == 0)	
+		{
+		  b=1;
+		  while(strcmp(operand2[i], instruction[i+b]))
+		     {		
+			fputs("Instructions:- \n\t\t\t", fout);
+			fputs(input[i],fout);
+			fputs("\t\t\t",fout);
+			fputs(input[i+b],fout);
+			fputs("Type of Dependence :  Control dependence ", fout);
+			fputs("\n",fout);
+			strcpy(message,"Cause of Dependence : Execution of the instruction depends on the result generated by BNE instruction which may cause control hazard.");
+			fputs( message, fout);
+			fputs("\n\n",fout);
+			b++;
+		     }
+
+		}
+	   }
+}
